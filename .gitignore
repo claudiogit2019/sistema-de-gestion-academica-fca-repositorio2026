@@ -1,0 +1,19 @@
+# Entornos virtuales locales
+.venv/
+venv/
+env/
+*env/
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos de datos locales antiguos (SQLite)
+*.db
+*.sqlite3
+
+# Configuraciones locales ocultas de IDEs
+.vscode/
+.streamlit/
+.DS_Store

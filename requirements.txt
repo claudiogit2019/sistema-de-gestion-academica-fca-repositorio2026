@@ -1,0 +1,7 @@
+streamlit
+pandas
+pypdf
+openpyxl
+xlrd
+pymongo
+dnspython
