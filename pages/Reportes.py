@@ -1,3 +1,9 @@
+import sys
+import os
+
+# 🛠️ SOLUCIÓN PARA RENDER: Aseguramos que Python encuentre la carpeta raíz 'modules'
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import pandas as pd
 from modules.logic import obtener_estudiantes
@@ -12,7 +18,7 @@ st.title(f"📊 Reporte de Rendimiento - {comision_activa}")
 
 # 2. Obtener de Base de Datos y aplicar FILTRO ESTRICTO de comisión
 todos_alumnos = obtener_estudiantes()
-alumnos_comision = [a for a in todos_alumnos if a.domicilio == comision_activa] if todos_alumnos else []
+alumnos_comision = [alu for alu in todos_alumnos if alu.domicilio == comision_activa] if todos_alumnos else []
 
 # 3. Recuperar estructuras compartidas de Asistencia y Evaluaciones
 columnas_eval = st.session_state.get("config_evaluaciones", {}).get(comision_activa, ["Observaciones"])
@@ -33,7 +39,7 @@ else:
     total_clases = len(diccionario_asistencias.keys())
 
     for alu in alumnos_comision:
-        uid = alu.id
+        uid = str(alu.id)  # Forzamos conversión a string compatible con MongoDB
         leg_val = alu.descripcion.split("Legajo:")[1].split("|")[0].strip() if "Legajo:" in alu.descripcion else "S/D"
         
         # A) CÁLCULO DE ASISTENCIA REAL
@@ -136,5 +142,3 @@ else:
             st.dataframe(df_alertas, use_container_width=True, hide_index=True)
         else:
             st.success("🎉 ¡Excelente! Ningún estudiante presenta notas bajas ni adeuda trabajos en esta comisión.")
-
-
