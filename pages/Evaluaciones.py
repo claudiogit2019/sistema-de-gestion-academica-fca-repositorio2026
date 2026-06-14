@@ -1,3 +1,9 @@
+import sys
+import os
+
+# 🛠️ SOLUCIÓN PARA RENDER: Aseguramos que Python encuentre la carpeta raíz 'modules'
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import pandas as pd
 from modules.logic import obtener_estudiantes
@@ -129,28 +135,28 @@ with col_derecha:
     else:
         matriz_datos = []
         for alu in alumnos_comision:
-            # CORREGIDO: Se cambió 'a.descripcion' por 'alu.descripcion' para solucionar el NameError anterior
             leg_val = alu.descripcion.split("Legajo:")[1].split("|")[0].strip() if "Legajo:" in alu.descripcion else "S/D"
             
             fila = {
-                "ID": alu.id, 
+                "ID": str(alu.id), 
                 "Legajo": leg_val, 
                 "Alumno": f"{alu.apellido}, {alu.nombre}"
             }
             
             # Recuperamos o creamos el repositorio de notas del alumno
-            notas_alumno = st.session_state.db_notas_mock.setdefault(alu.id, {})
+            notas_alumno = st.session_state.db_notas_mock.setdefault(str(alu.id), {})
             
             for col in columnas_actuales:
                 fila[col] = notas_alumno.get(col, "" if col == "Observaciones" else None)
                 
+            # CORREGIDO: Fuera del bucle interno para evitar duplicidad de celdas
             matriz_datos.append(fila)
             
         df_editable = pd.DataFrame(matriz_datos)
         
         # 2. Configurar los tipos de renderizado de las celdas del editor
         configurador_columnas = {
-            "ID": st.column_config.NumberColumn(disabled=True),
+            "ID": st.column_config.TextColumn(disabled=True),
             "Legajo": st.column_config.TextColumn(disabled=True),
             "Alumno": st.column_config.TextColumn(disabled=True)
         }
@@ -185,7 +191,7 @@ with col_derecha:
         # 4. Procesamiento y guardado definitivo de calificaciones
         if st.button("💾 Guardar Calificaciones de la Comisión", use_container_width=True):
             for _, row in df_resultado.iterrows():
-                uid = int(row["ID"])
+                uid = str(row["ID"])
                 for col in columnas_actuales:
                     st.session_state.db_notas_mock[uid][col] = row[col]
             st.success("¡Calificaciones guardadas de forma persistente!")
