@@ -1,3 +1,9 @@
+import sys
+import os
+
+# 🛠️ SOLUCIÓN PARA RENDER: Aseguramos que Python encuentre la carpeta raíz 'modules'
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -43,7 +49,7 @@ st.info(f"Clase: **{fecha_seleccionada.strftime('%d/%m/%Y')}**")
 
 # 3. Obtener y filtrar alumnos de la DB nativa que pertenezcan a la comisión activa
 todos_alumnos = obtener_estudiantes()
-alumnos_comision = [a for a in todos_alumnos if a.domicilio == comision_activa] if todos_alumnos else []
+alumnos_comision = [alu for alu in todos_alumnos if alu.domicilio == comision_activa] if todos_alumnos else []
 
 if not alumnos_comision:
     st.warning(f"No hay alumnos registrados en la {comision_activa}. Cargue alumnos en la sección de inicio.")
@@ -82,7 +88,7 @@ else:
     
     # Formato optimizado para celulares en forma de tarjetas limpias o filas expandidas
     for alu in alumnos_comision:
-        # Extraer legajo del campo descripción empaquetado del SIU
+        # CORREGIDO: Se cambió 'a.descripcion' por 'alu.descripcion' para solucionar el NameError potencial
         leg_val = alu.descripcion.split("Legajo:")[1].split("|")[0].strip() if "Legajo:" in alu.descripcion else "S/D"
         
         # Verificar estado actual guardado (por defecto False/Ausente)
