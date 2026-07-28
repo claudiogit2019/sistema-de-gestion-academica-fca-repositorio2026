@@ -64,13 +64,25 @@ def obtener_estudiantes():
         return []
 
 def eliminar_todos_los_estudiantes():
-    """Vacía la colección de estudiantes (Uso del prototipo para carga limpia)"""
+    """Vacía la colección completa de estudiantes"""
     try:
         estudiantes_coll.delete_many({})
         return True
     except Exception as e:
         print(f"Error al vaciar base de datos: {e}")
         return False
+
+def eliminar_estudiantes_por_comision(comision):
+    """
+    NUEVA FUNCIÓN: Elimina únicamente los estudiantes de una comisión específica
+    (identificada en la base de datos a través del campo 'domicilio').
+    """
+    try:
+        resultado = estudiantes_coll.delete_many({"domicilio": comision})
+        return True, resultado.deleted_count
+    except Exception as e:
+        print(f"Error al vaciar estudiantes de la comisión {comision}: {e}")
+        return False, 0
 
 # =========================================================================
 # LÓGICA DE CALIFICACIONES Y CRITERIOS (Para persistir Evaluaciones.py)
