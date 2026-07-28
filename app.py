@@ -8,6 +8,7 @@ from modules.logic import (
     eliminar_todos_los_estudiantes,
     eliminar_estudiantes_por_comision
 )
+from modules.auth import requiere_login
 
 # Configuración responsive móvil optimizada
 st.set_page_config(page_title="FCA UNJu - Gestión Directa", layout="wide", initial_sidebar_state="collapsed")
@@ -15,41 +16,7 @@ st.set_page_config(page_title="FCA UNJu - Gestión Directa", layout="wide", init
 # =========================================================================
 # 🔒 1. SISTEMA DE AUTENTICACIÓN / LOGIN
 # =========================================================================
-def verificar_login():
-    if "autenticado" not in st.session_state:
-        st.session_state.autenticado = False
-
-    if not st.session_state.autenticado:
-        st.title("🔐 Acceso al Sistema de Gestión Académica - FCA UNJu")
-        
-        with st.form("form_login"):
-            usuario = st.text_input("Usuario")
-            password = st.text_input("Contraseña", type="password")
-            submit = st.form_submit_button("Iniciar Sesión", use_container_width=True)
-            
-            if submit:
-                # Verifica credenciales de st.secrets (Render) o valores por defecto
-                USER_OK = st.secrets.get("ADMIN_USER", "admin")
-                PASS_OK = st.secrets.get("ADMIN_PASS", "fca2026")
-                
-                if usuario == USER_OK and password == PASS_OK:
-                    st.session_state.autenticado = True
-                    st.success("¡Bienvenido/a!")
-                    st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos.")
-        return False
-    return True
-
-if not verificar_login():
-    st.stop()
-
-# Menú de usuario en la barra lateral
-with st.sidebar:
-    st.write("👤 **Usuario:** Admin")
-    if st.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state.autenticado = False
-        st.rerun()
+requiere_login()
 
 # =========================================================================
 # 🏫 INICIALIZACIÓN Y CONFIGURACIÓN DE COMISIONES
@@ -230,7 +197,7 @@ st.divider()
 # =========================================================================
 comision_activa = st.session_state.global_comision
 
-with st.expander(f"⚠️ Zona de Peligro: Vaciar {comision_activa} (Cierre de Cuatrimestre)"):
+with st.expander(f"⚠️ Zona de Peligro: Vaciar {comision_activa} (Cierre de CuatRIMESTRE)"):
     st.warning(
         f"Esta acción borrará a todos los estudiantes registrados en **{comision_activa}**. "
         f"Las demás comisiones permanecerán intactas."
