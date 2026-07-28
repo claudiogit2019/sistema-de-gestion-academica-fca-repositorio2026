@@ -19,23 +19,54 @@ st.set_page_config(page_title="FCA UNJu - Gestión Directa", layout="wide", init
 requiere_login()
 
 # =========================================================================
-# 🏫 INICIALIZACIÓN Y CONFIGURACIÓN DE COMISIONES
+# 🏫 INICIALIZACIÓN Y CONFIGURACIÓN DE COMISIONES PERSISTENTES
 # =========================================================================
-if "comisiones" not in st.session_state:
-    st.session_state.comisiones = ["Comisión A1", "Comisión B2", "Comisión C1"]
-if "global_comision" not in st.session_state:
-    st.session_state.global_comision = "Comisión A1"
+# 1. Comisiones base por defecto
+comisiones_base = ["Comisión A1", "Comisión B2", "Comisión C1"]
+
+# 2. Rescatar comisiones con alumnos existentes en la Base de Datos
+alumnos_db = obtener_estudiantes()
+comisiones_db = list(set(a.domicilio for a in alumnos_db if a.domicilio)) if alumnos_db else []
+
+# 3. Mantener memoria local de comisiones recién creadas sin alumnos
+if "comisiones_creadas" not in st.session_state:
+    st.session_state.comisiones_creadas = []
+
+# Unificar todas las listas sin duplicados respetando el orden
+todas_comisiones = list(dict.fromkeys(comisiones_base + comisiones_db + st.session_state.comisiones_creadas))
+st.session_state.comisiones = todas_comisiones
+
+if "global_comision" not in st.session_state or st.session_state.global_comision not in st.session_state.comisiones:
+    st.session_state.global_comision = st.session_state.comisiones[0]
 
 st.title("👥 Gestión de Estudiantes")
 
 with st.container(border=True):
     st.markdown("### 🏫 Selección y Configuración de Comisión")
     
-    st.session_state.global_comision = st.selectbox(
-        "Seleccione la Comisión con la que va a trabajar:", 
-        st.session_state.comisiones,
-        index=st.session_state.comisiones.index(st.session_state.global_comision)
-    )
+    col_sel, col_del = st.columns([3, 1])
+    
+    with col_sel:
+        idx_actual = st.session_state.comisiones.index(st.session_state.global_comision) if st.session_state.global_comision in st.session_state.comisiones else 0
+        st.session_state.global_comision = st.selectbox(
+            "Seleccione la Comisión con la que va a trabajar:", 
+            st.session_state.comisiones,
+            index=idx_actual
+        )
+    
+    with col_del:
+        st.write("") # Espaciado
+        st.write("")
+        # Deshabilitar borrado si es una comisión por defecto
+        es_base = st.session_state.global_comision in comisiones_base
+        if st.button("🗑️ Eliminar Comisión", use_container_width=True, disabled=es_base, help="Elimina la comisión activa y sus datos"):
+            com_borrar = st.session_state.global_comision
+            eliminar_estudiantes_por_comision(com_borrar)
+            if com_borrar in st.session_state.comisiones_creadas:
+                st.session_state.comisiones_creadas.remove(com_borrar)
+            st.session_state.global_comision = comisiones_base[0]
+            st.success(f"Comisión '{com_borrar}' eliminada correctamente.")
+            st.rerun()
     
     with st.form("form_nueva_comision", clear_on_submit=True):
         c_input, c_btn = st.columns([2, 1])
@@ -44,7 +75,7 @@ with st.container(border=True):
             if nueva_com:
                 nueva_com_clean = nueva_com.strip()
                 if nueva_com_clean not in st.session_state.comisiones:
-                    st.session_state.comisiones.append(nueva_com_clean)
+                    st.session_state.comisiones_creadas.append(nueva_com_clean)
                     st.session_state.global_comision = nueva_com_clean
                     st.success(f"¡{nueva_com_clean} creada!")
                     st.rerun()
@@ -170,7 +201,6 @@ st.divider()
 # 📋 PLANILLA DE CONTROL DE LA COMISIÓN
 # =========================================================================
 st.subheader(f"📋 Estudiantes grabados en la {st.session_state.global_comision}")
-alumnos_db = obtener_estudiantes()
 
 if alumnos_db:
     filas_comision = []
@@ -197,7 +227,7 @@ st.divider()
 # =========================================================================
 comision_activa = st.session_state.global_comision
 
-with st.expander(f"⚠️ Zona de Peligro: Vaciar {comision_activa} (Cierre de CuatRIMESTRE)"):
+with st.expander(f"⚠️ Zona de Peligro: Vaciar {comision_activa} (Cierre de Cuatrimestre)"):
     st.warning(
         f"Esta acción borrará a todos los estudiantes registrados en **{comision_activa}**. "
         f"Las demás comisiones permanecerán intactas."
