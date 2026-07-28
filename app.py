@@ -5,13 +5,55 @@ from pypdf import PdfReader
 from modules.logic import (
     registrar_estudiante, 
     obtener_estudiantes,
-    eliminar_todos_los_estudiantes
+    eliminar_todos_los_estudiantes,
+    eliminar_estudiantes_por_comision
 )
 
 # Configuración responsive móvil optimizada
 st.set_page_config(page_title="FCA UNJu - Gestión Directa", layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialización de comisiones en el estado de la sesión
+# =========================================================================
+# 🔒 1. SISTEMA DE AUTENTICACIÓN / LOGIN
+# =========================================================================
+def verificar_login():
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+
+    if not st.session_state.autenticado:
+        st.title("🔐 Acceso al Sistema de Gestión Académica - FCA UNJu")
+        
+        with st.form("form_login"):
+            usuario = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            submit = st.form_submit_button("Iniciar Sesión", use_container_width=True)
+            
+            if submit:
+                # Verifica credenciales de st.secrets (Render) o valores por defecto
+                USER_OK = st.secrets.get("ADMIN_USER", "admin")
+                PASS_OK = st.secrets.get("ADMIN_PASS", "fca2026")
+                
+                if usuario == USER_OK and password == PASS_OK:
+                    st.session_state.autenticado = True
+                    st.success("¡Bienvenido/a!")
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos.")
+        return False
+    return True
+
+if not verificar_login():
+    st.stop()
+
+# Menú de usuario en la barra lateral
+with st.sidebar:
+    st.write("👤 **Usuario:** Admin")
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+
+# =========================================================================
+# 🏫 INICIALIZACIÓN Y CONFIGURACIÓN DE COMISIONES
+# =========================================================================
 if "comisiones" not in st.session_state:
     st.session_state.comisiones = ["Comisión A1", "Comisión B2", "Comisión C1"]
 if "global_comision" not in st.session_state:
@@ -19,9 +61,6 @@ if "global_comision" not in st.session_state:
 
 st.title("👥 Gestión de Estudiantes")
 
-# =========================================================================
-# ⚙️ CONTROL Y CREACIÓN DE COMISIONES
-# =========================================================================
 with st.container(border=True):
     st.markdown("### 🏫 Selección y Configuración de Comisión")
     
@@ -47,14 +86,13 @@ st.subheader(f"📍 Trabajando en: {st.session_state.global_comision}")
 st.divider()
 
 # =========================================================================
-# 📥 CARGA INMEDIATA AUTOMÁTICA (ESTILO PROTOTIPO ORIGINAL)
+# 📥 CARGA INMEDIATA AUTOMÁTICA
 # =========================================================================
 tab_siu, tab_manual = st.tabs(["📥 Carga Directa (Excel / PDF SIU)", "📝 Alta Manual Individual"])
 
 with tab_siu:
     st.markdown("Subí el archivo e **importá directamente** a la comisión seleccionada.")
     
-    # Al remover el botón, usamos el cambio de archivo como disparador directo
     archivo_cargado = st.file_uploader(
         "Arrastre o seleccione el archivo para cargar e importar inmediatamente:", 
         type=["xlsx", "xls", "pdf"], 
@@ -62,10 +100,8 @@ with tab_siu:
     )
     
     if archivo_cargado is not None:
-        # Generamos un identificador único para el archivo actual
         token_archivo = f"{archivo_cargado.name}_{archivo_cargado.size}"
         
-        # Solo se ejecuta si es un archivo nuevo y no se procesó en este ciclo
         if st.session_state.get("ultimo_token_procesado") != token_archivo:
             nombre_archivo = archivo_cargado.name.lower()
             alumnos_extraidos = []
@@ -118,12 +154,11 @@ with tab_siu:
                                     'legajo': leg_ext, 'apellido': ape, 'nombre': nom, 'dni': dni_ext
                                 })
                 
-                # --- ACCIÓN DIRECTA: LIMPIEZA E IMPORTACIÓN ---
+                # --- IMPORTACIÓN A LA COMISIÓN SELECCIONADA ---
                 if alumnos_extraidos:
-                    # 1. Limpiamos la base de datos por completo para evitar duplicaciones viejas
-                    eliminar_todos_los_estudiantes()
+                    # Limpiamos únicamente los alumnos pertenecientes a esta comisión
+                    eliminar_estudiantes_por_comision(st.session_state.global_comision)
                     
-                    # 2. Guardamos los nuevos alumnos directo a SQLite
                     contador_guardados = 0
                     for alu in alumnos_extraidos:
                         datos_alumno = {
@@ -134,9 +169,8 @@ with tab_siu:
                         if registrar_estudiante(datos_alumno):
                             contador_guardados += 1
                     
-                    # Guardamos la marca para evitar bucles de recarga infinitos
                     st.session_state.ultimo_token_procesado = token_archivo
-                    st.success(f"🚀 ¡Base de datos saneada! Se importaron {contador_guardados} alumnos directo a la {st.session_state.global_comision}.")
+                    st.success(f"🚀 ¡Lista de la {st.session_state.global_comision} actualizada! Se importaron {contador_guardados} alumnos.")
                     st.rerun()
                     
             except Exception as e:
@@ -166,7 +200,7 @@ with tab_manual:
 st.divider()
 
 # =========================================================================
-# 📋 PLANILLA DE CONTROL DEFINITIVA (SINO AL DETALLE)
+# 📋 PLANILLA DE CONTROL DE LA COMISIÓN
 # =========================================================================
 st.subheader(f"📋 Estudiantes grabados en la {st.session_state.global_comision}")
 alumnos_db = obtener_estudiantes()
@@ -188,3 +222,29 @@ if alumnos_db:
         st.info(f"No hay alumnos registrados en la {st.session_state.global_comision} todavía.")
 else:
     st.info("La base de datos se encuentra vacía.")
+
+st.divider()
+
+# =========================================================================
+# 🧹 ZONA DE PELIGRO: LIMPIEZA / CIERRE DE CUATRIMESTRE
+# =========================================================================
+comision_activa = st.session_state.global_comision
+
+with st.expander(f"⚠️ Zona de Peligro: Vaciar {comision_activa} (Cierre de Cuatrimestre)"):
+    st.warning(
+        f"Esta acción borrará a todos los estudiantes registrados en **{comision_activa}**. "
+        f"Las demás comisiones permanecerán intactas."
+    )
+    
+    confirmar_borrado = st.checkbox(f"Confirmo que deseo borrar los datos de la {comision_activa}", key="chk_borrar_com")
+    
+    if st.button(f"🗑️ Vaciar únicamente la {comision_activa}", type="primary", use_container_width=True):
+        if confirmar_borrado:
+            exito, borrados = eliminar_estudiantes_por_comision(comision_activa)
+            if exito:
+                st.success(f"¡Se eliminaron {borrados} estudiantes de la {comision_activa}!")
+                st.rerun()
+            else:
+                st.error("Ocurrió un error al intentar vaciar la comisión.")
+        else:
+            st.error("Debe marcar la casilla de confirmación para proceder.")
