@@ -5,8 +5,11 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import streamlit as st
+from modules.auth import requiere_login
 import pandas as pd
 from modules.logic import obtener_estudiantes
+
+requiere_login()
 
 # Configuración responsive móvil
 st.set_page_config(page_title="Evaluaciones - FCA UNJu", layout="wide", initial_sidebar_state="collapsed")
